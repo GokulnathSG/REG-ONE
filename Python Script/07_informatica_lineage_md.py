@@ -87,10 +87,33 @@ _TTYPE_JAVA        = "Java"
 _TTYPE_UNION       = "Union"
 _TTYPE_SEQ         = "Sequence"
 _TTYPE_XML_SQ      = "XML Source Qualifier"
+_TTYPE_XML_GEN     = "XML Generator"
+_TTYPE_XML_PARSER  = "XML Parser"
 _TTYPE_XML_TGT     = "XML Target Definition"
 _TTYPE_SP          = "Stored Procedure"
+_TTYPE_EXT_PROC    = "External Procedure"
 _TTYPE_CUSTOM      = "Custom Transformation"
 _TTYPE_MAPPLET     = "Mapplet"
+_TTYPE_SQL         = "SQL Transformation"
+_TTYPE_TXN         = "Transaction Control"
+_TTYPE_MASKING     = "Data Masking"
+_TTYPE_HIER_PARSER = "Hierarchy Parser"
+_TTYPE_HIER_BUILD  = "Hierarchy Builder"
+_TTYPE_CDC_CONS    = "CDC Consumer"
+_TTYPE_CDC_CTRL    = "CDC Control"
+_TTYPE_WS_CONS     = "Web Services Consumer"
+_TTYPE_WS_PROV     = "Web Services Provider"
+_TTYPE_MQ_CONS     = "MQSeries Consumer"
+_TTYPE_MQ_PROD     = "MQSeries Producer"
+_TTYPE_SAP_BW_SRC  = "SAP BW Source"
+_TTYPE_SAP_BW_TGT  = "SAP BW Target"
+_TTYPE_SAP_BAPI    = "SAP BAPI"
+_TTYPE_SAP_IDOC    = "SAP IDoc"
+_TTYPE_SAP_ERP_SQ  = "SAP ERP Source Qualifier"
+_TTYPE_SFDC_SQ     = "Salesforce Source Qualifier"
+_TTYPE_SFDC_LKP    = "Salesforce Lookup"
+_TTYPE_PWX_SQ      = "PowerExchange Source Qualifier"
+_TTYPE_PWX_CDC     = "PowerExchange CDC"
 _TTYPE_TARGET      = "Target Definition"
 _TTYPE_SOURCE      = "Source Definition"
 
@@ -99,8 +122,18 @@ _INTERMEDIATE_TYPES: Set[str] = {
     _TTYPE_SQ, _TTYPE_EXP, _TTYPE_FILTER, _TTYPE_LOOKUP,
     _TTYPE_JOINER, _TTYPE_AGG, _TTYPE_SORTER, _TTYPE_ROUTER,
     _TTYPE_NORM, _TTYPE_RANK, _TTYPE_UPD, _TTYPE_JAVA,
-    _TTYPE_UNION, _TTYPE_SEQ, _TTYPE_XML_SQ, _TTYPE_XML_TGT,
-    _TTYPE_SP, _TTYPE_CUSTOM, _TTYPE_MAPPLET, _TTYPE_TARGET,
+    _TTYPE_UNION, _TTYPE_SEQ, _TTYPE_XML_SQ, _TTYPE_XML_GEN,
+    _TTYPE_XML_PARSER, _TTYPE_XML_TGT, _TTYPE_SP, _TTYPE_EXT_PROC,
+    _TTYPE_CUSTOM, _TTYPE_MAPPLET, _TTYPE_SQL, _TTYPE_TXN,
+    _TTYPE_MASKING, _TTYPE_HIER_PARSER, _TTYPE_HIER_BUILD,
+    _TTYPE_CDC_CONS, _TTYPE_CDC_CTRL,
+    _TTYPE_WS_CONS, _TTYPE_WS_PROV,
+    _TTYPE_MQ_CONS, _TTYPE_MQ_PROD,
+    _TTYPE_SAP_BW_SRC, _TTYPE_SAP_BW_TGT,
+    _TTYPE_SAP_BAPI, _TTYPE_SAP_IDOC, _TTYPE_SAP_ERP_SQ,
+    _TTYPE_SFDC_SQ, _TTYPE_SFDC_LKP,
+    _TTYPE_PWX_SQ, _TTYPE_PWX_CDC,
+    _TTYPE_TARGET,
 }
 
 # Transformation-instance naming prefixes (used to detect intermediate nodes)
@@ -121,13 +154,24 @@ _TRANS_PREFIXES = (
     "UNION_",
     "JAVA_",
     "XML_",
-    "SP_","SPROC_","PROC_",
+    "SP_","SPROC_","PROC_","EXTPROC_",
+    "TXN_","TC_",
+    "MASK_","DM_",
+    "HP_","HIER_",
+    "CDC_",
+    "WS_","WSC_","WSP_",
+    "MQ_","MQC_","MQP_",
+    "SAP_","BAPI_","IDOC_",
+    "SFDC_","SF_",
+    "PWX_",
 )
 
 _TRANS_PREFIX_REGEX = re.compile(
     r"^(SQ|EXP|EXPTRANS|FILTRANS|FIL|NRM|NORM|SEQ|RTR|ROUTER|JNR|JOINER|"
-    r"AGG|AGG|SRT|SORTER|RANK|LKP|LOOKUP|UPD|UPDATE|JAVA|UNION|XML|SP|"
-    r"SPROC|PROC|MPT|MAPLET|TRANS|CUSTOM|CUST|SQL)[A-Z0-9_]*$",
+    r"AGG|SRT|SORTER|RANK|LKP|LOOKUP|UPD|UPDATE|JAVA|UNION|XML|SP|"
+    r"SPROC|PROC|EXTPROC|MPT|MAPLET|TRANS|CUSTOM|CUST|SQL|TXN|TC|"
+    r"MASK|DM|HP|HIER|CDC|WS|WSC|WSP|MQ|MQC|MQP|"
+    r"SAP|BAPI|IDOC|SFDC|SF|PWX)[A-Z0-9_]*$",
     re.IGNORECASE,
 )
 
@@ -289,6 +333,7 @@ class MappingModel:
         self._build_instances()
         self._build_transformations()
         self._build_connectors()
+        self._build_union_index()
 
     def _build_instances(self) -> None:
         for inst in _children(self.node, "INSTANCE"):
@@ -322,7 +367,11 @@ class MappingModel:
     # applied when the connector's instance is one of these types, so a
     # normal field name elsewhere (which might happen to contain '.' or ':'
     # for unrelated reasons) is never touched.
-    _MULTI_INPUT_GROUP_TYPES: Set[str] = {_TTYPE_UNION, _TTYPE_NORM, _TTYPE_XML_SQ}
+    # Union is intentionally excluded: its TOFIELD is always a plain port name
+    # (e.g. TRANSACTIONID1), never group-qualified.  The real Union input→output
+    # bridge is positional-by-group and is handled separately via the
+    # _union_output_to_inputs index built in _build_union_index().
+    _MULTI_INPUT_GROUP_TYPES: Set[str] = {_TTYPE_NORM, _TTYPE_XML_SQ}
     # Transformation types known to use multiple OUTPUT groups, where the
     # group qualifier appears on the FROM side (FROMINSTANCE or FROMFIELD).
     _MULTI_OUTPUT_GROUP_TYPES: Set[str] = {_TTYPE_ROUTER, _TTYPE_XML_SQ}
@@ -390,6 +439,111 @@ class MappingModel:
             self.conn_forward [(fi_base, ff_base)].append((ti_base, tf_base))
             self.conn_backward[(ti_base, tf_base)].append((fi_base, ff_base))
 
+    # ── Union detection ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _is_union_instance(ttype: str, trans_node: Optional[Dict]) -> bool:
+        """
+        Return True if this instance is a Union transformation.
+
+        Two cases confirmed in real exports:
+          1. TYPE == "Union"  (native Union transformation).
+          2. TYPE == "Custom Transformation" + TEMPLATENAME attribute that
+             contains "Union" (custom-template-based Union).
+        """
+        if ttype == _TTYPE_UNION:
+            return True
+        if ttype == _TTYPE_CUSTOM and trans_node is not None:
+            tmpl = _attr(trans_node, "TEMPLATENAME") or ""
+            if "union" in tmpl.lower():
+                return True
+        return False
+
+    # ── Union positional bridge ───────────────────────────────────────────────
+    # Built once per MappingModel, keyed by Union instance name.
+    # _union_output_to_inputs[union_inst][output_field] = [(input_inst, input_field), ...]
+    #
+    # Mechanism (confirmed from TRANSFORMFIELD metadata):
+    #   • Each Union input group has a set of TRANSFORMFIELD nodes with
+    #     PORTTYPE="INPUT" and GROUP attribute naming the group (e.g. "GROUP1").
+    #   • The single output group has TRANSFORMFIELD nodes with PORTTYPE="OUTPUT".
+    #   • Within a group, fields are ordered by their ordinal position in the
+    #     TRANSFORMFIELD list for that group.
+    #   • Output field at position N in the output group corresponds to the
+    #     input field at position N in EVERY input group.
+    #   • CONNECTOR nodes link upstream transformations to the Union's plain
+    #     input port names (no group qualifier on TOFIELD in the export).
+    #     Those connectors already land in conn_backward keyed by
+    #     (union_inst, input_field_name) — so once we know WHICH input field
+    #     feeds a given output field (via positional mapping), we can use the
+    #     existing conn_backward to walk further upstream.
+
+    def _build_union_index(self) -> None:
+        """
+        For every Union instance in this mapping, build a positional
+        output→input(s) map and store it in self._union_output_to_inputs.
+
+        self._union_output_to_inputs:
+            { union_inst_name:
+                { output_field_name: [(upstream_inst, upstream_field), ...] }
+            }
+
+        The returned (upstream_inst, upstream_field) pairs are the actual
+        connectors that feed the corresponding input port, not the Union's own
+        input field names — this lets upstream() return the real feeders
+        directly without a second lookup step.
+        """
+        self._union_output_to_inputs: Dict[str, Dict[str, List[Tuple[str, str]]]] = {}
+
+        for inst_name in list(self.instances.keys()):
+            ttype = self.get_trans_type(inst_name)
+            tnode = self.get_trans_node(inst_name)
+            if not self._is_union_instance(ttype, tnode):
+                continue
+            if tnode is None:
+                continue
+
+            # Collect TRANSFORMFIELD nodes, partitioned by group.
+            # OUTPUT group fields define the logical columns (no GROUP attr, or
+            # GROUP == "" or GROUP == "OUTPUT" depending on export variant).
+            # INPUT group fields are under GROUP1, GROUP2, etc.
+            output_fields: List[str] = []   # ordered output port names
+            # group_name -> ordered list of input port names
+            input_groups: Dict[str, List[str]] = defaultdict(list)
+
+            for tf in _children(tnode, "TRANSFORMFIELD"):
+                fname   = _attr(tf, "NAME")
+                ptype   = (_attr(tf, "PORTTYPE") or "").upper()
+                grp     = (_attr(tf, "GROUP") or "").strip()
+                if not fname:
+                    continue
+                if ptype == "OUTPUT" or (not grp and ptype != "INPUT"):
+                    # Output group: no GROUP attribute (or blank/OUTPUT marker)
+                    output_fields.append(fname)
+                elif ptype == "INPUT" and grp:
+                    input_groups[grp].append(fname)
+
+            if not output_fields or not input_groups:
+                continue
+
+            # For each output field at ordinal position i, the corresponding
+            # input field in every input group is also at position i (0-based).
+            # Walk conn_backward[(inst_name, input_field)] to get actual feeders.
+            output_map: Dict[str, List[Tuple[str, str]]] = {}
+            for out_idx, out_fname in enumerate(output_fields):
+                feeders: List[Tuple[str, str]] = []
+                for grp_name in sorted(input_groups.keys()):
+                    in_fields = input_groups[grp_name]
+                    if out_idx < len(in_fields):
+                        in_fname = in_fields[out_idx]
+                        # Use existing conn_backward to resolve to real upstream
+                        upstream_pairs = self.conn_backward.get((inst_name, in_fname), [])
+                        feeders.extend(upstream_pairs)
+                if feeders:
+                    output_map[out_fname] = feeders
+            if output_map:
+                self._union_output_to_inputs[inst_name] = output_map
+
     # ── lookup helpers ────────────────────────────────────────────────────────
 
     def get_trans_type(self, instance_name: str) -> str:
@@ -450,7 +604,20 @@ class MappingModel:
         return instance_name
 
     def upstream(self, instance: str, field: str) -> List[Tuple[str, str]]:
-        """Return [(from_instance, from_field)] feeding (instance, field)."""
+        """Return [(from_instance, from_field)] feeding (instance, field).
+
+        For Union instances the positional bridge (_union_output_to_inputs) is
+        consulted first; it maps output-port ordinal → actual upstream connectors
+        via the GROUP+position mechanism confirmed from TRANSFORMFIELD metadata.
+        Plain connector lookup (conn_backward) is used for every other type, and
+        also as a fallback for Union when the bridge has no entry for the field
+        (e.g. index not yet built or incomplete export).
+        """
+        union_map = getattr(self, "_union_output_to_inputs", {})
+        if instance in union_map:
+            feeders = union_map[instance].get(field)
+            if feeders:
+                return feeders
         return self.conn_backward.get((instance, field), [])
 
     def resolve_target_def(self, instance_name: str) -> str:
@@ -983,8 +1150,12 @@ class LineageTracer:
         the field has a non-trivial EXPRESSION attribute, return an annotation string.
         """
         ttype = mm.get_trans_type(instance)
-        if ttype not in (_TTYPE_EXP, _TTYPE_AGG, _TTYPE_FILTER,
-                         _TTYPE_ROUTER, _TTYPE_RANK, _TTYPE_NORM, _TTYPE_UPD):
+        if ttype not in (
+            _TTYPE_EXP, _TTYPE_AGG, _TTYPE_FILTER,
+            _TTYPE_ROUTER, _TTYPE_RANK, _TTYPE_NORM, _TTYPE_UPD,
+            _TTYPE_JAVA, _TTYPE_SQL, _TTYPE_CUSTOM, _TTYPE_EXT_PROC,
+            _TTYPE_MASKING, _TTYPE_TXN,
+        ):
             return None
         trans_node = mm.get_trans_node(instance)
         if not trans_node:
@@ -1113,12 +1284,23 @@ class ConditionExtractor:
                 if cond:
                     result["filter"].append(f"[{inst}/UpdateStrategy] {_compact_cond(cond)}")
 
-            # ── Lookup ────────────────────────────────────────────────────────
+            # ── Lookup (Connected + Unconnected) ──────────────────────────────
+            # Both variants share TYPE="Lookup Procedure". Unconnected lookups
+            # are called via LKP() in an expression and never appear as direct
+            # connector endpoints; they are still captured here for conditions.
             elif ttype == _TTYPE_LOOKUP:
+                is_unconnected = (
+                    tas.get("Lookup Policy on Multiple Match") == ""
+                    or tas.get("Tracing Level") == ""  # heuristic; unreliable alone
+                    or (tas.get("Return All Rows") or "").upper() in ("NO", "FALSE", "0")
+                )
                 lkp_cond = (tas.get("Lookup condition")
                             or tas.get("Lookup Sql Override") or "")
                 if lkp_cond:
-                    result["additional"].append(f"[{inst}/Lookup condition] {_compact_cond(lkp_cond)}")
+                    kind = "Unconnected Lookup" if is_unconnected else "Lookup condition"
+                    result["additional"].append(
+                        f"[{inst}/{kind}] {_compact_cond(lkp_cond)}"
+                    )
 
             # ── Aggregator GROUP BY ───────────────────────────────────────────
             if ttype == _TTYPE_AGG:
@@ -1182,11 +1364,147 @@ class ConditionExtractor:
                 if sp_name:
                     result["additional"].append(f"[{inst}/StoredProc] {sp_name}")
 
+            # ── External Procedure ────────────────────────────────────────────
+            if ttype == _TTYPE_EXT_PROC:
+                proc = (tas.get("Procedure Name") or tas.get("External Procedure Name")
+                        or tas.get("DLL Name") or "")
+                if proc:
+                    result["additional"].append(f"[{inst}/ExternalProc] {proc}")
+
             # ── Java ──────────────────────────────────────────────────────────
             if ttype == _TTYPE_JAVA:
                 cls = tas.get("Class Name") or tas.get("Java Class Name") or ""
                 if cls:
                     result["additional"].append(f"[{inst}/Java] class: {cls}")
+
+            # ── SQL Transformation ────────────────────────────────────────────
+            if ttype == _TTYPE_SQL:
+                sql_q = (tas.get("SQL Query") or tas.get("Sql Query")
+                         or tas.get("SQL") or "")
+                if sql_q:
+                    result["additional"].append(
+                        f"[{inst}/SQLTrans] {_compact_cond(sql_q)}"
+                    )
+
+            # ── Transaction Control ───────────────────────────────────────────
+            if ttype == _TTYPE_TXN:
+                expr = (tas.get("Transaction Control Condition")
+                        or tas.get("Condition") or "")
+                if expr:
+                    result["filter"].append(
+                        f"[{inst}/TransactionControl] {_compact_cond(expr)}"
+                    )
+
+            # ── Data Masking ──────────────────────────────────────────────────
+            if ttype == _TTYPE_MASKING:
+                policy = tas.get("Masking Policy") or tas.get("Policy") or ""
+                if policy:
+                    result["additional"].append(f"[{inst}/DataMasking] policy: {policy}")
+
+            # ── XML Generator / Parser ────────────────────────────────────────
+            if ttype in (_TTYPE_XML_GEN, _TTYPE_XML_PARSER):
+                schema = (tas.get("XML Definition") or tas.get("Schema")
+                          or tas.get("XML Schema") or "")
+                label = "XMLGenerator" if ttype == _TTYPE_XML_GEN else "XMLParser"
+                if schema:
+                    result["additional"].append(f"[{inst}/{label}] schema: {schema}")
+
+            # ── Hierarchy Parser / Builder ────────────────────────────────────
+            if ttype in (_TTYPE_HIER_PARSER, _TTYPE_HIER_BUILD):
+                schema = (tas.get("Hierarchy Definition") or tas.get("Schema")
+                          or tas.get("Hierarchy Schema") or "")
+                label = "HierarchyParser" if ttype == _TTYPE_HIER_PARSER else "HierarchyBuilder"
+                if schema:
+                    result["additional"].append(f"[{inst}/{label}] schema: {schema}")
+
+            # ── CDC Consumer / Control ────────────────────────────────────────
+            if ttype in (_TTYPE_CDC_CONS, _TTYPE_CDC_CTRL):
+                src = (tas.get("Source") or tas.get("CDC Source")
+                       or tas.get("Registration") or "")
+                label = "CDCConsumer" if ttype == _TTYPE_CDC_CONS else "CDCControl"
+                if src:
+                    result["additional"].append(f"[{inst}/{label}] {src}")
+
+            # ── Web Services Consumer / Provider ──────────────────────────────
+            if ttype in (_TTYPE_WS_CONS, _TTYPE_WS_PROV):
+                svc = (tas.get("Service URL") or tas.get("WSDL URL")
+                       or tas.get("Service Name") or "")
+                label = "WSConsumer" if ttype == _TTYPE_WS_CONS else "WSProvider"
+                if svc:
+                    result["additional"].append(f"[{inst}/{label}] {svc}")
+
+            # ── MQSeries Consumer / Producer ──────────────────────────────────
+            if ttype in (_TTYPE_MQ_CONS, _TTYPE_MQ_PROD):
+                queue = (tas.get("Queue Name") or tas.get("MQ Queue")
+                         or tas.get("Queue Manager") or "")
+                label = "MQConsumer" if ttype == _TTYPE_MQ_CONS else "MQProducer"
+                if queue:
+                    result["additional"].append(f"[{inst}/{label}] queue: {queue}")
+
+            # ── SAP BW Source / Target ────────────────────────────────────────
+            if ttype in (_TTYPE_SAP_BW_SRC, _TTYPE_SAP_BW_TGT):
+                obj = (tas.get("InfoObject") or tas.get("InfoSource")
+                       or tas.get("DataSource") or tas.get("InfoCube") or "")
+                label = "SAPBWSource" if ttype == _TTYPE_SAP_BW_SRC else "SAPBWTarget"
+                if obj:
+                    result["additional"].append(f"[{inst}/{label}] {obj}")
+
+            # ── SAP BAPI ──────────────────────────────────────────────────────
+            if ttype == _TTYPE_SAP_BAPI:
+                bapi = (tas.get("BAPI Name") or tas.get("Function Module")
+                        or tas.get("RFC Name") or "")
+                if bapi:
+                    result["additional"].append(f"[{inst}/SAPBAPI] {bapi}")
+
+            # ── SAP IDoc ──────────────────────────────────────────────────────
+            if ttype == _TTYPE_SAP_IDOC:
+                idoc = (tas.get("IDoc Type") or tas.get("Message Type")
+                        or tas.get("IDoc Name") or "")
+                if idoc:
+                    result["additional"].append(f"[{inst}/SAPIDoc] {idoc}")
+
+            # ── SAP ERP Source Qualifier ──────────────────────────────────────
+            if ttype == _TTYPE_SAP_ERP_SQ:
+                sql = tas.get("Sql Query") or tas.get("SQL Query") or ""
+                where = _extract_where(sql)
+                if where:
+                    result["filter"].append(
+                        f"[{inst}/SAPERPSourceQual WHERE] {_compact_cond(where)}"
+                    )
+
+            # ── Salesforce Source Qualifier ───────────────────────────────────
+            if ttype == _TTYPE_SFDC_SQ:
+                soql = (tas.get("SOQL Query") or tas.get("Sql Query")
+                        or tas.get("Filter Condition") or "")
+                if soql:
+                    result["filter"].append(
+                        f"[{inst}/SalesforceSourceQual] {_compact_cond(soql)}"
+                    )
+
+            # ── Salesforce Lookup ─────────────────────────────────────────────
+            if ttype == _TTYPE_SFDC_LKP:
+                lkp_cond = (tas.get("Lookup condition") or tas.get("SOQL Query")
+                            or tas.get("Filter Condition") or "")
+                if lkp_cond:
+                    result["additional"].append(
+                        f"[{inst}/SalesforceLookup] {_compact_cond(lkp_cond)}"
+                    )
+
+            # ── PowerExchange Source Qualifier ────────────────────────────────
+            if ttype == _TTYPE_PWX_SQ:
+                sql = tas.get("Sql Query") or tas.get("SQL Query") or ""
+                where = _extract_where(sql)
+                if where:
+                    result["filter"].append(
+                        f"[{inst}/PWXSourceQual WHERE] {_compact_cond(where)}"
+                    )
+
+            # ── PowerExchange CDC ─────────────────────────────────────────────
+            if ttype == _TTYPE_PWX_CDC:
+                src = (tas.get("Source") or tas.get("CDC Source")
+                       or tas.get("Map Name") or "")
+                if src:
+                    result["additional"].append(f"[{inst}/PWXCDC] {src}")
 
         return result
 
@@ -1779,6 +2097,17 @@ class MarkdownRenderer:
             (("MPT_", "MAPLET_"), "Mapplet"),
             (("XML_",), "XML"),
             (("SP_", "SPROC_", "PROC_"), "Stored Procedure"),
+            (("EXTPROC_",), "External Procedure"),
+            (("SQL_",), "SQL Transformation"),
+            (("TXN_", "TC_"), "Transaction Control"),
+            (("MASK_", "DM_"), "Data Masking"),
+            (("HP_", "HIER_"), "Hierarchy"),
+            (("CDC_",), "CDC"),
+            (("WS_", "WSC_", "WSP_"), "Web Services"),
+            (("MQ_", "MQC_", "MQP_"), "MQSeries"),
+            (("SAP_", "BAPI_", "IDOC_"), "SAP"),
+            (("SFDC_", "SF_"), "Salesforce"),
+            (("PWX_",), "PowerExchange"),
         ]:
             if upper.startswith(prefix):
                 return f"  *({label}: {tname})*"
