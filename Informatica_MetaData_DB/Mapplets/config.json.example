@@ -1,0 +1,22 @@
+{
+  "_comment": "Copy this file to config.json and fill in your Informatica repository (Oracle) connection details. Never commit config.json with real credentials to source control.",
+  "db": {
+    "user": "",
+    "password": "",
+    "dsn": "",
+    "_dsn_examples": [
+      "myoracledbhost.company.com:1521/INFAREPO",
+      "myoracledbhost.company.com:1521/ORCL.company.com"
+    ]
+  },
+  "options": {
+    "schema_prefix": "",
+    "_schema_prefix_note": "If the repository tables/views live under a specific schema and your user doesn't default to it, set e.g. 'INFA_REPO.' (with trailing dot). Leave '' if not needed.",
+    "output_folder": "./output"
+  },
+  "thick_mode": {
+    "enabled": true,
+    "lib_dir": "",
+    "_lib_dir_note": "Set to the Oracle Instant Client directory if it is not already on PATH/LD_LIBRARY_PATH, e.g. 'C:/oracle/instantclient_21_12' or '/opt/oracle/instantclient_21_12'. null = auto-detect."
+  }
+}
