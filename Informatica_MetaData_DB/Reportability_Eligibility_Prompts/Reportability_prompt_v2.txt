@@ -1,0 +1,59 @@
+this my JSON, 
+planning to create Enterprise Data Model using powerbi
+but need restructure my JSON to a Table format- full data lineage mapping wise Full End-to-End Field Lineage 
+traced each field from the first source table, through all transformations/mapplets, to the last target table.
+
+use the JSON input: to trace the fields in json from their originating source tables, through mappings, transformations, expressions, lookups, and cross-mapping handoffs, to the final target tables.
+
+for business logic Use input: user provided excel that detailed table view with business logic transformation wise per tab 
+ 
+ 
+Final lineage table structure - The flattened table includes:
+Workbook contents
+tab-1 named: Field_Lineage — flattened source-to-final-target lineage records.
+-> Col-1 named: Mapping (Single Current Mapping Name)
+-> Col-2 named: Mapplet (Single Current Mapping Name -Ignore if the workflow doesn't have any mapplet) 
+-> Col-2 named: Session (Single Current Session Name)
+-> Col-3 named: Source Table
+-> Col-4 named: Source Field
+-> Col-5 named: Target Table
+-> Col-6 named: Target Field 
+-> col-7 named: Transformation (Exact Transformation Name)
+-> col-8 named: Transformation Type (Category)
+-> Col-9 named: Transformation_Full_Lineage_path (source-to-final-target per mapping along with field_name like src_tabl.field_name)
+-> col-10 named: Individual_Transformations (Implementation/Business logic : record per Transformation)
+-> col-11 named: Links (prev_Session.Target_table.field_name->Current_session.source.field_name)
+-> Col-12 named: Hop count
+
+note: tab-1 of Col-6
+when user apply filter on this column- need a Col-4 and Col-5 which are directly involved to create this field or involved in the data lineage.which means for eg: 4 field may contribute to create a single field.
+
+like expecting many or one Source Table and Source field to one Target Field 
+
+
+tab-2 named: Referrential/other Tables
+-> col-1 named: Mapping/Mapplet (Single Current Mapping /Mapplet Name)
+-> col-2 named: Transformation (Exact Transformation Name)
+-> col-3 named: Referrential Table Name (only Table Name)
+-> col-4 named : Alias /Original Name (only Table Name-> keep the table name for elgibile records alone for the rest keep it blank) 
+-> col-5 named: Referrential Field 
+
+note: tab-2 of Col-3: 
+1. Tables involved in the lookups and referrential Tables (starts with ref or rf or anyother pattern found use that)
+2. Other Table (non-referrential): extract the all tables with this case- also check the Source Qualifer or SQL Query where Table name is given alias name 
+3. for alias table in the sql query part find for "FROM table_name [optional_space] alias_name" pattern mention
+table_name in the col-3 and alias_name in col-4
+
+
+
+PowerBI_Usage — guidance for importing and visualizing the data.
+For Power BI, use Field_Lineage for the main table visual and lineage visuals.
+
+hard rules to follow:
+- strictly dont guess or skip any info.
+- strictly avoid the duplication.
+- maintain same format in all sheet: header -purple background with white text and records / Value part -green text
+- keep the design simple.
+ 
+
+
