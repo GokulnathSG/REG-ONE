@@ -83,6 +83,32 @@ def _find_col(cols, aliases):
     return None
 
 
+def _find_transformation_col(cols):
+    """Find the workbook column that carries the transformation instance
+    name for this sheet.
+
+    Preferred aliases are tried first. As a safe additive fallback for
+    exports that name this as <TYPE>_TRANSFORMATION (e.g.
+    LOOKUP_TRANSFORMATION), pick the first column whose normalized name
+    ends with 'transformation' while excluding non-name metadata columns
+    like TRANSFORMATION_TYPE / TRANSFORMATION_REUSABLE.
+    """
+    col = _find_col(cols, ["Transformation Name", "Transformation", "Instance Name"])
+    if col:
+        return col
+
+    for c in cols:
+        nc = _norm(c)
+        if not nc.endswith("transformation"):
+            continue
+        if nc in {"transformation", "transformationname"}:
+            return c
+        if nc.endswith("transformationtype") or nc.endswith("transformationreusable"):
+            continue
+        return c
+    return None
+
+
 # --------------------------------------------------------------------------
 # Loading the user-supplied workbook
 # --------------------------------------------------------------------------
@@ -144,8 +170,10 @@ def _match_sheet_name(workbook, ttype, mapplet_mode):
 
 
 # --------------------------------------------------------------------------
-# Per-sheet lookup index: (session, mapping/mapplet, transformation, port)
-# -> list of matched rows (normalized-header -> value dict)
+# Per-sheet lookup index: primarily keyed by
+# (session, mapping/mapplet, transformation, port) -> list of matched rows
+# (normalized-header -> value dict). Also carries transformation-level keys
+# as a fallback for tabs/rows that don't provide a usable PORT_NAME.
 # --------------------------------------------------------------------------
 
 def _build_sheet_index(df):
@@ -153,11 +181,11 @@ def _build_sheet_index(df):
     session_col = _find_col(cols, ["Session Name", "Session"])
     mapping_col = _find_col(cols, ["Mapping Name", "Mapping"])
     mapplet_col = _find_col(cols, ["Mapplet Name", "Mapplet"])
-    trans_col = _find_col(cols, ["Transformation Name", "Transformation", "Instance Name"])
+    trans_col = _find_transformation_col(cols)
     port_col = _find_col(cols, ["PORT_NAME", "Port Name", "Port"])
 
     index = defaultdict(list)
-    if not trans_col or not port_col:
+    if not trans_col:
         return index  # sheet doesn't even carry the minimum identifying columns
 
     def val(rowd, col):
@@ -175,7 +203,7 @@ def _build_sheet_index(df):
         mapplet_v = _norm(val(rowd, mapplet_col))
         trans_v = _norm(val(rowd, trans_col))
         port_v = _norm(val(rowd, port_col))
-        if not trans_v or not port_v:
+        if not trans_v:
             continue
 
         normmap = {}
@@ -189,12 +217,18 @@ def _build_sheet_index(df):
         scopes = {s for s in (mapping_v, mapplet_v) if s}
         if not scopes:
             # Sheet has no Mapping/Mapplet column at all - fall back to
-            # matching on Transformation + Port alone as a last resort.
-            index[("bare", trans_v, port_v)].append(normmap)
+            # matching on Transformation (+ Port when present) as a last
+            # resort.
+            if port_v:
+                index[("bare", trans_v, port_v)].append(normmap)
+            index[("bare_tonly", trans_v)].append(normmap)
             continue
         for scope_v in scopes:
-            index[("full", session_v, scope_v, trans_v, port_v)].append(normmap)
-            index[("loose", scope_v, trans_v, port_v)].append(normmap)
+            if port_v:
+                index[("full", session_v, scope_v, trans_v, port_v)].append(normmap)
+                index[("loose", scope_v, trans_v, port_v)].append(normmap)
+            index[("full_tonly", session_v, scope_v, trans_v)].append(normmap)
+            index[("loose_tonly", scope_v, trans_v)].append(normmap)
 
     return index
 
@@ -207,6 +241,15 @@ def _lookup(index, session_v, scope_v, trans_v, port_v):
     if rows:
         return rows
     rows = index.get(("bare", trans_v, port_v))
+    if rows:
+        return rows
+    rows = index.get(("full_tonly", session_v, scope_v, trans_v))
+    if rows:
+        return rows
+    rows = index.get(("loose_tonly", scope_v, trans_v))
+    if rows:
+        return rows
+    rows = index.get(("bare_tonly", trans_v))
     if rows:
         return rows
     return []
@@ -246,23 +289,23 @@ def _compute_business_fields(ttype, matched_rows):
     if "EXPRESSION" in t and "AGGREGATOR" not in t:
         # Per spec: "Expression" header under the Expression /
         # Mapplet_Expression tab.
-        return attr("Expression"), ""
+        return attr("Expression", "EXPRESSION"), ""
 
     if "AGGREGATOR" in t:
         # Per spec: "expression" header under the Aggregator /
         # Mapplet_Aggregator tab.
-        return attr("Expression", "Aggregator Expression"), ""
+        return attr("Expression", "EXPRESSION", "Aggregator Expression", "AGGREGATOR_EXPRESSION"), ""
 
     if "FILTER" in t:
-        return attr("Filter Condition"), ""
+        return attr("Filter Condition", "FILTER_CONDITION"), ""
 
     if "JOINER" in t:
-        return attr("Join Condition"), attr("Join Type")
+        return attr("Join Condition", "JOIN_CONDITION"), attr("Join Type", "JOIN_TYPE")
 
     if "LOOKUP" in t:
-        cond = attr("Lookup Condition")
-        sql = attr("Lookup Sql Override", "Lookup Sql Overide")
-        table = attr("Lookup Table Name")
+        cond = attr("LOOKUP_CONDITION", "Lookup Condition")
+        sql = attr("LOOKUP_SQL_OVERRIDE", "Lookup Sql Override", "Lookup Sql Overide", "SQL Override")
+        table = attr("LOOKUP_TABLE_NAME", "Lookup Table Name")
         parts = []
         if cond:
             parts.append(f"Lookup Condition: {cond}")
@@ -270,11 +313,13 @@ def _compute_business_fields(ttype, matched_rows):
             parts.append(f"Lookup Sql Override: {sql}")
         if table:
             parts.append(f"Lookup Table Name: {table}")
-        return "\n".join(parts), attr("Connection Information")
+        return "\n".join(parts), attr(
+            "Connection Information", "CONNECTION_INFORMATION", "Connection Info", "Connection Name"
+        )
 
     if "ROUTER" in t:
-        grp = attr("Group Name")
-        cond = attr("Group Filter Condition", "Filter Condition", "Condition")
+        grp = attr("Group Name", "GROUP_NAME")
+        cond = attr("Group Filter Condition", "GROUP_FILTER_CONDITION", "Filter Condition", "Condition")
         parts = []
         if grp:
             parts.append(f"Group Name: {grp}")
@@ -285,21 +330,28 @@ def _compute_business_fields(ttype, matched_rows):
     if "SEQUENCE" in t:
         biz = attr("Current Value")
         addl_parts = []
-        for label in ("Start Value", "Increment Value", "End Value"):
-            v = attr(label)
+        for label, aliases in (
+            ("Start Value", ("Start Value",)),
+            ("Increment Value", ("Increment Value", "Increment By")),
+            ("End Value", ("End Value",)),
+        ):
+            v = attr(*aliases)
             if v:
                 addl_parts.append(f"{label}: {v}")
         return biz, "; ".join(addl_parts)
 
     if "SORTER" in t:
-        return attr("Sort Direction"), attr("Transformation Scope")
+        return attr("Sort Direction", "SORT_DIRECTION"), attr("Transformation Scope", "TRANSFORMATION_SCOPE")
 
     if "SOURCE QUALIFIER" in t or t == "SQ":
-        biz = attr("SQL Query", "Sql Override")
+        biz = attr("SQL Query", "SQL_QUERY", "Sql Override")
         addl_parts = []
-        uj = attr("User Defined Join")
-        sf = attr("Source Filter")
-        assoc = attr("Associated Source Definitions", "Associated Source Instance", "Source Table Name")
+        uj = attr("User Defined Join", "USER_DEFINED_JOIN")
+        sf = attr("Source Filter", "SOURCE_FILTER")
+        assoc = attr(
+            "Associated Source Definitions", "ASSOCIATED_SOURCE_DEFINITIONS",
+            "Associated Source Instance", "Source Table Name"
+        )
         if uj:
             addl_parts.append(f"User Defined Join: {uj}")
         if sf:
@@ -336,22 +388,25 @@ def _compute_business_fields(ttype, matched_rows):
         return biz, "; ".join(pairs)
 
     if "TRANSACTION" in t:
-        return attr("Transaction Control Condition"), ""
+        return attr("Transaction Control Condition", "TRANSACTION_CONTROL_CONDITION"), ""
 
     if "UPDATE STRATEGY" in t:
-        return attr("Update Strategy Expression"), ""
+        return attr("Update Strategy Expression", "UPDATE_STRATEGY_EXPRESSION"), ""
 
     if "RANK" in t:
         top_bottom = attr("Top/Bottom", "Top Bottom", "Rank")
-        num_ranks = attr("Number of Ranks", "Number Of Ranks")
+        num_ranks = attr("Number of Ranks", "Number Of Ranks", "NUMBER_OF_RANKS")
         biz = f"Rank={top_bottom}, number of Ranks={num_ranks}" if (top_bottom or num_ranks) else ""
-        addl = attr("Case Sensitive String Comparison", "Case-Sensitive String Comparison")
+        addl = attr(
+            "Case Sensitive String Comparison", "Case-Sensitive String Comparison",
+            "CASE_SENSITIVE_STRING_COMPARISON"
+        )
         return biz, addl
 
     if "CUSTOM" in t:
-        grp_port = attr("Group_source_port", "Group Source Port")
-        grp_type = attr("GORUP_TYPE", "Group_Type", "Group Type")
-        ext_val = attr("Extension_Value", "Extension Value")
+        grp_port = attr("Group_source_port", "Group Source Port", "GROUP_SOURCE_PORT", "Group Name", "GROUP_NAME")
+        grp_type = attr("GORUP_TYPE", "GROUP_TYPE", "Group_Type", "Group Type")
+        ext_val = attr("Extension_Value", "EXTENSION_VALUE", "Extension Value")
         biz_parts = []
         if grp_port:
             biz_parts.append(f"Group_source_port: {grp_port}")
@@ -361,8 +416,8 @@ def _compute_business_fields(ttype, matched_rows):
             biz_parts.append(f"Extension_Value: {ext_val}")
         biz = "; ".join(biz_parts)
 
-        ext_name = attr("Extension_Name", "Extension Name")
-        ext_domain = attr("Extension_domain_name", "Extension Domain Name")
+        ext_name = attr("Extension_Name", "EXTENSION_NAME", "Extension Name")
+        ext_domain = attr("Extension_domain_name", "EXTENSION_DOMAIN_NAME", "Extension Domain Name")
         addl_parts = []
         if ext_name:
             addl_parts.append(f"Extension_Name: {ext_name}")
