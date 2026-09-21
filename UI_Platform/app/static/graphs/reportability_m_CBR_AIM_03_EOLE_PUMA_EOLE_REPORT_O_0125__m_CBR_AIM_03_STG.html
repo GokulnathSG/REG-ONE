@@ -1,0 +1,140 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 750px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": {"background": "#A0522D", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::CBR_PUMA_REPORTING::ADJUSTED_COUNTERPARTYID", "label": "CBR_PUMA\nREPORTING\n.ADJUSTED\nCOUNTERPARTYID", "level": 6, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::CBR_PUMA_REPORTING::ADJUSTED_COUNTERPARTYID (TARGET_INTERMEDIATE)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#E67E22", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_2192::New_ADJUSTED_COUNTERPARTYID", "label": "EXP_2192\n[Expression]", "level": 5, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_2192::New_ADJUSTED_COUNTERPARTYID (TRANSFORMATION_LOGIC)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_2192::o_Adjusted_CounterpartyID_del", "label": "EXP_2192\n[Expression]", "level": 2, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_2192::o_Adjusted_CounterpartyID_del (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#E67E22", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::LKP_TCLIBDR_DELGENITTY::o_CODETBGESDEL", "label": "LKP_TCLIBDR\nDELGENITTY\n[Lookup\nProcedure]", "level": 1, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::LKP_TCLIBDR_DELGENITTY::o_CODETBGESDEL (TRANSFORMATION_LOGIC)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::LKP_TCLIBDR::CODETBGESDEL", "label": "LKP_TCLIBDR\n[Lookup\nProcedure]", "level": 0, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::LKP_TCLIBDR::CODETBGESDEL (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_2192::o_Adjusted_CounterpartyID", "label": "EXP_2192\n[Expression]", "level": 1, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_2192::o_Adjusted_CounterpartyID (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#E67E22", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_calc::o_Adjusted_CounterpartyID", "label": "EXP_calc\n[Expression]", "level": 0, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_calc::o_Adjusted_CounterpartyID (TRANSFORMATION_LOGIC)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_2192::COUNTERP_TRADEPARTYID", "label": "EXP_2192\n[Expression]", "level": 4, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_2192::COUNTERP_TRADEPARTYID (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_calc::COUNTERP_TRADEPARTYID", "label": "EXP_calc\n[Expression]", "level": 3, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_calc::COUNTERP_TRADEPARTYID (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_passthru::COUNTERP_TRADEPARTYID", "label": "EXP_passthru\n[Expression]", "level": 2, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_passthru::COUNTERP_TRADEPARTYID (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#E67E22", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::SQ_CBR_DTM_TRADE::COUNTERP_TRADEPARTYID", "label": "SQ_CBR_DTM_TRADE\n[Source\nQualifier]", "level": 1, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::SQ_CBR_DTM_TRADE::COUNTERP_TRADEPARTYID (TRANSFORMATION_LOGIC)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#2E8B57", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::CBR_DTM_TRADE::COUNTERP_TRADEPARTYID", "label": "CBR_DTM_TRADE\n.COUNTERP\nTRADEPARTYID", "level": 0, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::CBR_DTM_TRADE::COUNTERP_TRADEPARTYID (SOURCE)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_2192::I_CP_CTRCODE", "label": "EXP_2192\n[Expression]", "level": 4, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_2192::I_CP_CTRCODE (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_calc::I_CP_CTRCODE", "label": "EXP_calc\n[Expression]", "level": 3, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_calc::I_CP_CTRCODE (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#3C8DBC", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::EXP_passthru::CP_CTRCODE", "label": "EXP_passthru\n[Expression]", "level": 2, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::EXP_passthru::CP_CTRCODE (TRANSFORMATION_PASSTHROUGH)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#E67E22", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::SQ_CBR_DTM_TRADE::CP_CTRCODE", "label": "SQ_CBR_DTM_TRADE\n[Source\nQualifier]", "level": 1, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::SQ_CBR_DTM_TRADE::CP_CTRCODE (TRANSFORMATION_LOGIC)", "widthConstraint": {"maximum": 190, "minimum": 90}}, {"color": {"background": "#2E8B57", "border": "#13223f", "highlight": {"background": "#4472C4", "border": "#13223f"}}, "font": {"bold": {"size": 15}, "color": "#ffffff", "face": "arial", "multi": false, "size": 15}, "id": "mapping:m_CBR_AIM.03_STG::CBR_DTM_TRADE::CP_CTRCODE", "label": "CBR_DTM_TRADE\n.CP_CTRCODE", "level": 0, "margin": 10, "shape": "box", "shapeProperties": {"borderRadius": 6}, "title": "mapping:m_CBR_AIM.03_STG::CBR_DTM_TRADE::CP_CTRCODE (SOURCE)", "widthConstraint": {"maximum": 190, "minimum": 90}}]);
+                  edges = new vis.DataSet([{"arrows": "to", "color": {"color": "#8a94a6", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_2192::New_ADJUSTED_COUNTERPARTYID", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::CBR_PUMA_REPORTING::ADJUSTED_COUNTERPARTYID"}, {"arrows": "to", "color": {"color": "#E67E22", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_2192::o_Adjusted_CounterpartyID_del", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_2192::New_ADJUSTED_COUNTERPARTYID"}, {"arrows": "to", "color": {"color": "#3C8DBC", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::LKP_TCLIBDR_DELGENITTY::o_CODETBGESDEL", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_2192::o_Adjusted_CounterpartyID_del"}, {"arrows": "to", "color": {"color": "#E67E22", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::LKP_TCLIBDR::CODETBGESDEL", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::LKP_TCLIBDR_DELGENITTY::o_CODETBGESDEL"}, {"arrows": "to", "color": {"color": "#E67E22", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_2192::o_Adjusted_CounterpartyID", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_2192::New_ADJUSTED_COUNTERPARTYID"}, {"arrows": "to", "color": {"color": "#3C8DBC", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_calc::o_Adjusted_CounterpartyID", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_2192::o_Adjusted_CounterpartyID"}, {"arrows": "to", "color": {"color": "#E67E22", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_2192::COUNTERP_TRADEPARTYID", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_2192::New_ADJUSTED_COUNTERPARTYID"}, {"arrows": "to", "color": {"color": "#3C8DBC", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_calc::COUNTERP_TRADEPARTYID", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_2192::COUNTERP_TRADEPARTYID"}, {"arrows": "to", "color": {"color": "#3C8DBC", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_passthru::COUNTERP_TRADEPARTYID", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_calc::COUNTERP_TRADEPARTYID"}, {"arrows": "to", "color": {"color": "#3C8DBC", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::SQ_CBR_DTM_TRADE::COUNTERP_TRADEPARTYID", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_passthru::COUNTERP_TRADEPARTYID"}, {"arrows": "to", "color": {"color": "#E67E22", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::CBR_DTM_TRADE::COUNTERP_TRADEPARTYID", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::SQ_CBR_DTM_TRADE::COUNTERP_TRADEPARTYID"}, {"arrows": "to", "color": {"color": "#E67E22", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_2192::I_CP_CTRCODE", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_2192::New_ADJUSTED_COUNTERPARTYID"}, {"arrows": "to", "color": {"color": "#3C8DBC", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_calc::I_CP_CTRCODE", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_2192::I_CP_CTRCODE"}, {"arrows": "to", "color": {"color": "#3C8DBC", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::EXP_passthru::CP_CTRCODE", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_calc::I_CP_CTRCODE"}, {"arrows": "to", "color": {"color": "#3C8DBC", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::SQ_CBR_DTM_TRADE::CP_CTRCODE", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::EXP_passthru::CP_CTRCODE"}, {"arrows": "to", "color": {"color": "#E67E22", "highlight": "#2E5395"}, "font": {"color": "#555555", "size": 11, "strokeColor": "#ffffff", "strokeWidth": 3}, "from": "mapping:m_CBR_AIM.03_STG::CBR_DTM_TRADE::CP_CTRCODE", "label": "", "smooth": {"roundness": 0.4, "type": "cubicBezier"}, "to": "mapping:m_CBR_AIM.03_STG::SQ_CBR_DTM_TRADE::CP_CTRCODE"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"layout": {"hierarchical": {"enabled": true, "direction": "LR", "sortMethod": "directed", "levelSeparation": 220, "nodeSpacing": 130, "treeSpacing": 170, "blockShifting": true, "edgeMinimization": true, "parentCentralization": false}}, "physics": {"enabled": true, "solver": "hierarchicalRepulsion", "hierarchicalRepulsion": {"nodeDistance": 150, "centralGravity": 0, "springLength": 120, "springConstant": 0.02, "damping": 0.15, "avoidOverlap": 1}, "stabilization": {"enabled": true, "iterations": 300, "fit": true}}, "edges": {"smooth": {"type": "cubicBezier", "forceDirection": "horizontal", "roundness": 0.45}}, "interaction": {"hover": true, "navigationButtons": true, "zoomView": true, "dragView": true, "dragNodes": true}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
+<script>
+  (function () {
+    function attach() {
+      if (typeof network === "undefined" || !network) { return setTimeout(attach, 50); }
+      network.on("click", function (params) {
+        if (params.nodes && params.nodes.length > 0) {
+          window.parent.postMessage({ type: "node-click", id: params.nodes[0] }, "*");
+        }
+      });
+    }
+    attach();
+  })();
+</script>

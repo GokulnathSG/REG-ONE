@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Target Field Lineage{% endblock %}
+{% block content %}
+<h4 class="section-navy mb-3">Target Field Lineage</h4>
+<p class="text-muted small">
+  Enter a Workflow, Session, or Mapping name and a Target Table to generate an
+  end-to-end, field-by-field lineage workbook: every direct and indirect source
+  field, transformation, expression, lookup, router, join, aggregation, mapplet,
+  previous-session dependency, and business rule involved in producing each
+  field on that target.
+</p>
+
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+<form method="post" action="{{ url_for('field_lineage.field_lineage_submit') }}" class="card p-3 mb-3">
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label class="form-label">Workflow / Session / Mapping</label>
+      <input type="text" class="form-control" name="workflow_input" value="{{ workflow_input or '' }}" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Target Table</label>
+      <input type="text" class="form-control" name="target_table" value="{{ target_table or '' }}" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Instance</label>
+      {% if instance_options %}
+      <select class="form-select" name="instance">
+        {% for opt in instance_options %}
+        <option value="{{ opt.name }}" {% if opt.name == instance %}selected{% endif %}>
+          {{ opt.name }} &mdash; fed by: {{ opt.producers }}
+        </option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <input type="text" class="form-control" name="instance" value="{{ instance or '' }}"
+             placeholder="(auto-detected if the target table is only used once)">
+      {% endif %}
+    </div>
+  </div>
+
+  {% if multi_instance_warning %}
+  <div class="alert alert-warning mt-3 mb-0">{{ multi_instance_warning }}</div>
+  {% endif %}
+
+  <div class="mt-3">
+    <button type="submit" class="btn btn-primary" style="background-color:#1F3864;border-color:#1F3864;">Submit</button>
+  </div>
+</form>
+
+<div class="mt-3">
+  <a class="btn btn-outline-secondary js-download-file"
+     href="{{ url_for('field_lineage.field_lineage_download_all') }}"
+     data-filename="Field_Lineage_Workflow.xlsx"
+     data-loading-label="Download in progress&hellip; (Field Lineage &ndash; whole workflow)">
+    Download Field_Lineage for the whole workflow (all Mappings/Mapplets/Target Tables)
+  </a>
+</div>
+
+{% if ready %}
+<div class="card">
+  <div class="card-body d-flex justify-content-between align-items-center">
+    <div>
+      <strong>Field_Lineage workbook ready</strong>
+      <div class="text-muted small">
+        Mapping: <strong>{{ mapping_name }}</strong> &middot;
+        Session: <strong>{{ session_name or '(none)' }}</strong> &middot;
+        Instance: <strong>{{ instance }}</strong> &middot;
+        {{ field_count }} target field(s) will be traced.
+      </div>
+    </div>
+    <a class="btn btn-primary js-download-file" style="background-color:#1F3864;border-color:#1F3864;"
+       href="{{ url_for('field_lineage.field_lineage_download', mapping=mapping_name, instance=instance, session=session_name or '') }}"
+       data-filename="Field_Lineage_{{ mapping_name }}_{{ instance }}.xlsx"
+       data-loading-label="Download in progress&hellip; (Field Lineage &ndash; {{ mapping_name }})">
+      Download Excel
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

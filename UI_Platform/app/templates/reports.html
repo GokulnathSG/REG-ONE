@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}Informatica ORACLE DB Connector{% endblock %}
+{% block content %}
+<h4 class="section-navy mb-3">Informatica ORACLE DB Connector</h4>
+
+<div class="card db-connector-card">
+  <div class="card-body">
+    <p class="text-muted small">Enter your Oracle database credentials below to connect.</p>
+
+    <form id="dbConnectorForm" onsubmit="return false;">
+      <div class="mb-3">
+        <label class="form-label" for="dbUser">DB_USER:</label>
+        <input type="text" class="form-control" id="dbUser" autocomplete="username" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="dbPassword">DB_PASSWORD:</label>
+        <input type="password" class="form-control" id="dbPassword" autocomplete="current-password" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="dbDsn">DSN:</label>
+        <input type="text" class="form-control" id="dbDsn" placeholder="host:port/service_name" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="dbSchema">Schema:</label>
+        <input type="text" class="form-control" id="dbSchema" placeholder="e.g. SALES">
+        <div class="form-text">Automatically shown with a trailing dot once you leave the field, e.g. <code>SALES.</code></div>
+      </div>
+
+      <div id="dbConnectError" class="alert alert-danger d-none mb-3"></div>
+
+      <button type="button" id="dbConnectBtn" class="btn btn-primary" style="background-color:#1F3864;border-color:#1F3864;">
+        Connect
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Connected confirmation popup -->
+<div class="modal fade" id="dbConnectedModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="color:#1F3864;">Connected</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="dbConnectedModalBody">
+        Connected successfully.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" style="background-color:#1F3864;border-color:#1F3864;" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Improvement-4: once the DB connection succeeds, reveal the query form so
+     the person can run the Transformation-wise extraction (Transformation_wise_updated.py)
+     against the same Oracle credentials and download the resulting workbook. -->
+<div class="card db-connector-card mt-4 d-none" id="transformationQueryCard">
+  <div class="card-body">
+    <h5 class="mb-1" style="color:#1F3864;">Run Transformation Query</h5>
+    <p class="text-muted small">Uses the Oracle connection above. Fill in the workflow to
+      extract, then generate the Transformation Details workbook.</p>
+
+    <form id="transformationQueryForm" onsubmit="return false;">
+      <div class="mb-3">
+        <label class="form-label" for="tqSubjectArea">Subject Area:</label>
+        <input type="text" class="form-control" id="tqSubjectArea" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="tqWorkflow">Workflow Name:</label>
+        <input type="text" class="form-control" id="tqWorkflow" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="tqMapping">Mapping <span class="text-muted">(optional)</span>:</label>
+        <input type="text" class="form-control" id="tqMapping" placeholder="Leave blank for the entire workflow">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="tqTransformationNames">Transformation Name(s) <span class="text-muted">(optional)</span>:</label>
+        <input type="text" class="form-control" id="tqTransformationNames"
+               placeholder="Comma-separated, e.g. FIL_ACTIVE, EXP_CALC. Leave blank for all.">
+      </div>
+
+      <div id="tqError" class="alert alert-danger d-none mb-3"></div>
+
+      <button type="button" id="tqGenerateBtn" class="btn btn-primary" style="background-color:#1F3864;border-color:#1F3864;">
+        Generate Excel
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Generate-Excel loading overlay: separate from the generic download
+     overlay in base.html because this one shows live progress + an ETA
+     while the Oracle extraction (which can take a while on large
+     workflows) runs in the background. -->
+<div id="tqProgressOverlay" class="download-progress-overlay d-none">
+  <div class="download-progress-box">
+    <div class="spinner-border" role="status" style="color:#1F3864;"></div>
+    <div class="mt-3 fw-semibold" style="color:#1F3864;" id="tqProgressLabel">Starting&hellip;</div>
+    <div class="mt-1 text-muted small" id="tqProgressDetail"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var schemaInput = document.getElementById("dbSchema");
+
+  // Improvement-2: once the user has entered a schema name, show it back
+  // with a trailing dot, e.g. "SALES" -> "SALES."
+  schemaInput.addEventListener("blur", function () {
+    var val = schemaInput.value.trim();
+    if (val && !val.endsWith(".")) {
+      schemaInput.value = val + ".";
+    }
+  });
+
+  var connectBtn = document.getElementById("dbConnectBtn");
+  var errorBox = document.getElementById("dbConnectError");
+  var connectedModalEl = document.getElementById("dbConnectedModal");
+  var connectedModal = new bootstrap.Modal(connectedModalEl);
+  var connectedModalBody = document.getElementById("dbConnectedModalBody");
+  var transformationQueryCard = document.getElementById("transformationQueryCard");
+
+  // Improvement-4: kept in memory only (never persisted) so the "Generate
+  // Excel" step can re-use the credentials the person already validated,
+  // without asking them to type the password again.
+  var lastConnected = null;
+
+  connectBtn.addEventListener("click", function () {
+    errorBox.classList.add("d-none");
+
+    var dbUser = document.getElementById("dbUser").value.trim();
+    var dbPassword = document.getElementById("dbPassword").value;
+    var dbDsn = document.getElementById("dbDsn").value.trim();
+    var dbSchema = schemaInput.value.trim();
+
+    if (!dbUser || !dbPassword || !dbDsn) {
+      errorBox.textContent = "DB_USER, DB_PASSWORD and DSN are all required.";
+      errorBox.classList.remove("d-none");
+      return;
+    }
+
+    connectBtn.disabled = true;
+    connectBtn.textContent = "Connecting\u2026";
+
+    fetch("{{ url_for('report.db_connect') }}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        db_user: dbUser,
+        db_password: dbPassword,
+        dsn: dbDsn,
+        schema: dbSchema
+      })
+    })
+      .then(function (resp) { return resp.json().then(function (data) { return { status: resp.status, data: data }; }); })
+      .then(function (result) {
+        if (result.data && result.data.ok) {
+          connectedModalBody.textContent = result.data.message || "Connected successfully.";
+          connectedModal.show();
+          lastConnected = { db_user: dbUser, db_password: dbPassword, dsn: dbDsn, schema: dbSchema };
+          transformationQueryCard.classList.remove("d-none");
+        } else {
+          errorBox.textContent = (result.data && result.data.message) || "Connection failed.";
+          errorBox.classList.remove("d-none");
+        }
+      })
+      .catch(function () {
+        errorBox.textContent = "Connection failed: could not reach the server.";
+        errorBox.classList.remove("d-none");
+      })
+      .finally(function () {
+        connectBtn.disabled = false;
+        connectBtn.textContent = "Connect";
+      });
+  });
+
+  // --- Run Transformation Query -> Generate Excel -----------------------
+  var tqGenerateBtn = document.getElementById("tqGenerateBtn");
+  var tqError = document.getElementById("tqError");
+  var tqOverlay = document.getElementById("tqProgressOverlay");
+  var tqLabel = document.getElementById("tqProgressLabel");
+  var tqDetail = document.getElementById("tqProgressDetail");
+  var tqPollTimer = null;
+
+  function formatSeconds(s) {
+    if (s === null || s === undefined) return null;
+    s = Math.max(0, Math.round(s));
+    if (s < 60) return s + "s";
+    var m = Math.floor(s / 60), rem = s % 60;
+    return m + "m " + rem + "s";
+  }
+
+  function stopPolling() {
+    if (tqPollTimer) { clearInterval(tqPollTimer); tqPollTimer = null; }
+  }
+
+  function downloadFinishedFile(jobId, downloadName) {
+    fetch("{{ url_for('report.generate_excel_download', job_id='JOB_ID') }}".replace("JOB_ID", jobId),
+          { credentials: "same-origin" })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("Download failed (" + resp.status + ")");
+        return resp.blob();
+      })
+      .then(function (blob) {
+        var objectUrl = URL.createObjectURL(blob);
+        var tempLink = document.createElement("a");
+        tempLink.href = objectUrl;
+        tempLink.download = downloadName || "Transformation_Details.xlsx";
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+        setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 1000);
+      })
+      .catch(function (err) {
+        tqError.textContent = err.message || "The download could not be completed.";
+        tqError.classList.remove("d-none");
+      })
+      .finally(function () {
+        tqOverlay.classList.add("d-none");
+      });
+  }
+
+  function pollStatus(jobId) {
+    fetch("{{ url_for('report.generate_excel_status', job_id='JOB_ID') }}".replace("JOB_ID", jobId))
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        if (!data || !data.ok) {
+          stopPolling();
+          tqOverlay.classList.add("d-none");
+          tqError.textContent = (data && data.message) || "Lost track of the export job.";
+          tqError.classList.remove("d-none");
+          return;
+        }
+
+        tqLabel.textContent = data.label || "Working\u2026";
+        var elapsedText = "Elapsed " + formatSeconds(data.elapsed_seconds);
+        var etaText = data.eta_seconds !== null ? " \u2022 estimated time remaining ~" + formatSeconds(data.eta_seconds) : "";
+        var stepText = data.total_steps ? " \u2022 step " + data.current_step + " of " + data.total_steps : "";
+        tqDetail.textContent = elapsedText + etaText + stepText;
+
+        if (data.status === "done") {
+          stopPolling();
+          downloadFinishedFile(jobId, data.download_name);
+        } else if (data.status === "error") {
+          stopPolling();
+          tqOverlay.classList.add("d-none");
+          tqError.textContent = data.error || "The export failed.";
+          tqError.classList.remove("d-none");
+        }
+      })
+      .catch(function () {
+        stopPolling();
+        tqOverlay.classList.add("d-none");
+        tqError.textContent = "Lost connection to the server while checking progress.";
+        tqError.classList.remove("d-none");
+      });
+  }
+
+  tqGenerateBtn.addEventListener("click", function () {
+    tqError.classList.add("d-none");
+
+    if (!lastConnected) {
+      tqError.textContent = "Please connect to the database first.";
+      tqError.classList.remove("d-none");
+      return;
+    }
+
+    var subjectArea = document.getElementById("tqSubjectArea").value.trim();
+    var workflow = document.getElementById("tqWorkflow").value.trim();
+    var mapping = document.getElementById("tqMapping").value.trim();
+    var transformationNames = document.getElementById("tqTransformationNames").value.trim();
+
+    if (!subjectArea || !workflow) {
+      tqError.textContent = "Subject Area and Workflow Name are both required.";
+      tqError.classList.remove("d-none");
+      return;
+    }
+
+    tqGenerateBtn.disabled = true;
+    tqLabel.textContent = "Starting\u2026";
+    tqDetail.textContent = "";
+    tqOverlay.classList.remove("d-none");
+
+    fetch("{{ url_for('report.generate_excel_start') }}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        db_user: lastConnected.db_user,
+        db_password: lastConnected.db_password,
+        dsn: lastConnected.dsn,
+        schema: lastConnected.schema,
+        subject_area: subjectArea,
+        workflow: workflow,
+        mapping: mapping,
+        transformation_names: transformationNames
+      })
+    })
+      .then(function (resp) { return resp.json().then(function (data) { return { status: resp.status, data: data }; }); })
+      .then(function (result) {
+        if (result.data && result.data.ok) {
+          tqPollTimer = setInterval(function () { pollStatus(result.data.job_id); }, 1200);
+          pollStatus(result.data.job_id);
+        } else {
+          tqOverlay.classList.add("d-none");
+          tqError.textContent = (result.data && result.data.message) || "Could not start the export.";
+          tqError.classList.remove("d-none");
+        }
+      })
+      .catch(function () {
+        tqOverlay.classList.add("d-none");
+        tqError.textContent = "Could not reach the server to start the export.";
+        tqError.classList.remove("d-none");
+      })
+      .finally(function () {
+        tqGenerateBtn.disabled = false;
+      });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+<table class="table table-sm table-hover align-middle">
+  <thead>
+    <tr class="table-light">
+      <th>Workflow Name</th>
+      <th>Session Name</th>
+      <th>Mapping Name</th>
+      {% if show_mapplet %}<th>Mapplet</th>{% endif %}
+      <th>Transformation Name</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.workflow }}</td>
+      <td>{{ row.session }}</td>
+      <td><a href="{{ url_for('visualization.mapping_detail', mapping_name=row.mapping) }}">{{ row.mapping }}</a></td>
+      {% if show_mapplet %}
+      <td>
+        {% if row.mapplet %}<a href="{{ url_for('visualization.mapplet_detail', mapplet_name=row.mapplet) }}">{{ row.mapplet }}</a>{% endif %}
+      </td>
+      {% endif %}
+      <td>{{ row.transformation }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="text-muted small">{{ rows|length }} row(s), in execution order.</p>

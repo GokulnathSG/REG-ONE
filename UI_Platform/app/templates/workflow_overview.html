@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Visualization - {{ repo.workflow.name }}{% endblock %}
+{% block content %}
+<h4 class="section-navy mb-3">{{ repo.workflow.name }}</h4>
+
+<ul class="nav nav-tabs" id="vizTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview-pane" type="button">Overview</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="table-tab" data-bs-toggle="tab" data-bs-target="#table-pane" type="button" onclick="loadTableView()">Table View</button>
+  </li>
+</ul>
+
+<div class="tab-content border border-top-0 p-3 bg-white">
+  <div class="tab-pane fade show active" id="overview-pane" role="tabpanel">
+    <p class="text-muted small">Nodes are sessions; edges show execution flow. Click a session to view details. Zoom/pan/auto-layout are built in (drag, scroll to zoom).</p>
+    <iframe class="graph-frame" src="{{ url_for('static', filename=graph_path) }}"></iframe>
+  </div>
+  <div class="tab-pane fade" id="table-pane" role="tabpanel">
+    <div id="tableViewContainer">
+      <div class="text-muted">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div class="detail-panel" id="detailPanel">
+  <div class="d-flex justify-content-between align-items-start mb-2">
+    <h5 id="detailPanelTitle">Details</h5>
+    <button class="btn-close" onclick="closeDetailPanel()"></button>
+  </div>
+  <div id="detailPanelBody"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/detail_panel.js') }}"></script>
+<script>
+  document.body.setAttribute("data-panel-mode", "session");
+
+  function loadTableView() {
+    var container = document.getElementById("tableViewContainer");
+    if (container.getAttribute("data-loaded")) return;
+    fetch("{{ url_for('visualization.table_view') }}")
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        container.innerHTML = html;
+        container.setAttribute("data-loaded", "1");
+      });
+  }
+</script>
+{% endblock %}

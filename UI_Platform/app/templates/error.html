@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Error{% endblock %}
+{% block body_attrs %} data-page="upload"{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-center mt-5">
+  <div class="card shadow-sm" style="width: 480px;">
+    <div class="card-body p-4 text-center">
+      <h5 class="text-danger mb-3">Something went wrong</h5>
+      <p>{{ message }}</p>
+      <a class="btn btn-primary" style="background-color:#1F3864;border-color:#1F3864;" href="{{ url_for('upload.upload_page') }}">Back to Upload</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

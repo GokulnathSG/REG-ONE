@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Informatica Workflow Platform{% endblock %}</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
+</head>
+<body{% block body_attrs %}{% endblock %}>
+  <nav class="navbar navbar-dark app-navbar px-3">
+    <span class="navbar-brand mb-0 h1">Informatica Workflow Analysis &amp; Documentation Platform</span>
+    {% if filename %}<span class="text-white-50 small">Loaded: {{ filename }}</span>{% endif %}
+  </nav>
+
+  <div class="d-flex app-shell">
+    <div class="app-menu d-flex flex-column" id="appMenu">
+      <a class="menu-item {% if active == 'visualization' %}active{% endif %}" href="{{ url_for('visualization.workflow_overview') }}" title="Visualization">
+        <span class="menu-icon">&#9776;</span><span class="menu-label">Visualization</span>
+      </a>
+      <a class="menu-item {% if active == 'implementation' %}active{% endif %}" href="{{ url_for('implementation.implementation_page') }}" title="Informatica XML Downloads">
+        <span class="menu-icon">&#128196;</span><span class="menu-label">Informatica XML Downloads</span>
+      </a>
+      <a class="menu-item {% if active == 'reports' %}active{% endif %}" href="{{ url_for('report.reports_page') }}" title="Informatica ORACLE DB Connector">
+        <span class="menu-icon">&#128424;</span><span class="menu-label">Informatica ORACLE DB Connector</span>
+      </a>
+      <a class="menu-item mt-auto" href="{{ url_for('upload.upload_page') }}" title="New Upload">
+        <span class="menu-icon">&#8635;</span><span class="menu-label">New Upload</span>
+      </a>
+    </div>
+    <div class="app-content flex-grow-1">
+      {% if error %}<div class="alert alert-danger m-3">{{ error }}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+  <!-- Download-in-progress overlay: shown while a file download is streaming, auto-hidden once it completes -->
+  <div id="downloadProgressOverlay" class="download-progress-overlay d-none">
+    <div class="download-progress-box">
+      <div class="spinner-border" role="status" style="color:#1F3864;"></div>
+      <div class="mt-3 fw-semibold" style="color:#1F3864;" id="downloadProgressText">Download in progress&hellip;</div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='js/menu.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/downloads.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
